@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 이미지 분석기</title>
+  <style>
+    /* ── 전역 리셋 & 다크 테마 ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 48px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #a78bfa;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 32px;
+    }
+
+    /* ── 카드 공통 ── */
+    .card {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 14px;
+    }
+
+    /* ── 이미지 업로드 영역 ── */
+    .upload-zone {
+      border: 2px dashed #3b4263;
+      border-radius: 10px;
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .upload-zone:hover { border-color: #a78bfa; background: #252840; }
+    .upload-zone.dragover { border-color: #a78bfa; background: #252840; }
+
+    .upload-zone input[type="file"] { display: none; }
+
+    .upload-icon { font-size: 2.2rem; margin-bottom: 10px; }
+
+    .upload-hint {
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-top: 6px;
+    }
+
+    /* ── 이미지 미리보기 ── */
+    #previewWrap {
+      display: none;
+      margin-top: 16px;
+      text-align: center;
+    }
+
+    #previewImg {
+      max-width: 100%;
+      max-height: 320px;
+      border-radius: 8px;
+      border: 1px solid #2d3148;
+      object-fit: contain;
+    }
+
+    .preview-name {
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-top: 8px;
+    }
+
+    /* ── 텍스트 입력 ── */
+    textarea {
+      width: 100%;
+      background: #13151f;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      padding: 12px 14px;
+      resize: vertical;
+      min-height: 80px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus { border-color: #a78bfa; }
+    textarea::placeholder { color: #3b4263; }
+
+    /* ── 버튼 ── */
+    .btn-analyze {
+      width: 100%;
+      padding: 14px;
+      background: #7c3aed;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    .btn-analyze:hover:not(:disabled) { background: #6d28d9; }
+    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── 로딩 애니메이션 ── */
+    #loading {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 16px;
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      color: #a78bfa;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #3b4263;
+      border-top-color: #a78bfa;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── 결과 영역 ── */
+    #resultCard { display: none; }
+
+    .result-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .badge {
+      background: #252840;
+      border: 1px solid #3b4263;
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 0.73rem;
+      color: #94a3b8;
+    }
+
+    .badge span { color: #a78bfa; font-weight: 600; }
+
+    .result-label {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+
+    .result-box {
+      background: #13151f;
+      border: 1px solid #2d3148;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* ── 에러 ── */
+    #errorBox {
+      display: none;
+      background: #2a1a1a;
+      border: 1px solid #7f1d1d;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.87rem;
+      color: #fca5a5;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <h1>AI 이미지 분석기</h1>
+    <p class="subtitle">이미지를 업로드하고 질문을 입력하면 AI가 분석해 드립니다.</p>
+
+    <!-- 이미지 업로드 카드 -->
+    <div class="card">
+      <div class="card-title">이미지 선택</div>
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">🖼️</div>
+        <div>클릭하거나 이미지를 드래그하세요</div>
+        <div class="upload-hint">JPG · PNG · WEBP · GIF &nbsp;|&nbsp; 최대 10MB</div>
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif" />
+      </div>
+      <!-- 미리보기 -->
+      <div id="previewWrap">
+        <img id="previewImg" alt="미리보기" />
+        <div class="preview-name" id="previewName"></div>
+      </div>
+    </div>
+
+    <!-- 질문 입력 카드 -->
+    <div class="card">
+      <div class="card-title">질문 입력</div>
+      <textarea id="questionInput" placeholder="예: 이 이미지에서 텍스트를 추출해줘. / 이 사진에서 무엇이 보여?">이 이미지에서 텍스트를 추출하고 내용을 설명해줘.</textarea>
+    </div>
+
+    <!-- 분석 버튼 -->
+    <button class="btn-analyze" id="analyzeBtn" onclick="analyzeImage()">분석하기</button>
+
+    <!-- 에러 메시지 -->
+    <div id="errorBox"></div>
+
+    <!-- 로딩 표시 -->
+    <div id="loading">
+      <div class="spinner"></div>
+      AI가 분석 중입니다...
+    </div>
+
+    <!-- 결과 카드 -->
+    <div class="card" id="resultCard">
+      <div class="card-title">분석 결과</div>
+
+      <div class="result-meta" id="resultMeta"></div>
+
+      <div class="result-label">질문</div>
+      <div class="result-box" id="resultQuestion"></div>
+
+      <div class="result-label">AI 답변</div>
+      <div class="result-box" id="resultAnswer"></div>
+    </div>
+
+  </div>
+
+  <script>
+    let selectedFile = null;
+
+    // ── 업로드 영역 클릭 → 파일 선택창 열기
+    document.getElementById('uploadZone').addEventListener('click', () => {
+      document.getElementById('fileInput').click();
+    });
+
+    // ── 파일 선택 이벤트
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      handleFile(e.target.files[0]);
+    });
+
+    // ── 드래그 앤 드롭 처리
+    const uploadZone = document.getElementById('uploadZone');
+
+    uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadZone.classList.add('dragover');
+    });
+
+    uploadZone.addEventListener('dragleave', () => {
+      uploadZone.classList.remove('dragover');
+    });
+
+    uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        handleFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    // ── 파일 처리 및 미리보기 표시
+    function handleFile(file) {
+      if (!file) return;
+
+      selectedFile = file;
+
+      // 미리보기 이미지 렌더링
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('previewName').textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+        document.getElementById('previewWrap').style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ── 분석 요청 전송
+    async function analyzeImage() {
+      // 유효성 검사
+      if (!selectedFile) {
+        showError('이미지를 먼저 선택해주세요.');
+        return;
+      }
+
+      const question = document.getElementById('questionInput').value.trim();
+      if (!question) {
+        showError('질문을 입력해주세요.');
+        return;
+      }
+
+      // UI 상태 전환: 로딩 시작
+      setLoading(true);
+      hideError();
+      document.getElementById('resultCard').style.display = 'none';
+
+      // FormData 구성
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      formData.append('question', question);
+
+      try {
+        // Node.js 프록시 서버로 전송
+        const response = await fetch('/analyze', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          showError(data.message || '분석 중 오류가 발생했습니다.');
+          return;
+        }
+
+        // 결과 렌더링
+        renderResult(data);
+
+      } catch (err) {
+        showError('서버 연결 실패: ' + err.message);
+      } finally {
+        // 로딩 종료
+        setLoading(false);
+      }
+    }
+
+    // ── 결과 화면 렌더링
+    function renderResult(data) {
+      document.getElementById('resultMeta').innerHTML =
+        '<div class="badge">모델 <span>' + data.model + '</span></div>';
+
+      document.getElementById('resultQuestion').textContent = data.question;
+      document.getElementById('resultAnswer').textContent   = data.answer;
+      document.getElementById('resultCard').style.display   = 'block';
+
+      // 결과창으로 부드럽게 스크롤
+      document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── 로딩 상태 전환
+    function setLoading(isLoading) {
+      document.getElementById('loading').style.display    = isLoading ? 'flex' : 'none';
+      document.getElementById('analyzeBtn').disabled      = isLoading;
+      document.getElementById('analyzeBtn').textContent   = isLoading ? '분석 중...' : '분석하기';
+    }
+
+    // ── 에러 메시지 표시 / 숨기기
+    function showError(msg) {
+      const box = document.getElementById('errorBox');
+      box.textContent     = '⚠️ ' + msg;
+      box.style.display   = 'block';
+    }
+
+    function hideError() {
+      document.getElementById('errorBox').style.display = 'none';
+    }
+  </script>
+</body>
+</html>

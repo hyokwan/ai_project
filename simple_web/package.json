@@ -1,0 +1,16 @@
+{
+  "name": "simple_web",
+  "version": "1.0.0",
+  "description": "AI 이미지 분석 웹 클라이언트 (Express 프록시 서버)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "form-data": "^4.0.0"
+  }
+}
