@@ -12,6 +12,7 @@ const port = 3000;
 
 // FastAPI 서버 주소
 const FASTAPI_URL = 'http://localhost:8000/analyze';
+const OCR_URL     = 'http://localhost:8001/ocr';
 
 
 // 업로드된 파일을 메모리에 임시 저장 (디스크 저장 없이 바로 전달)
@@ -71,6 +72,43 @@ app.post('/analyze', upload.single('image'), async (req, res) => {
             res.status(err.response.status).json({
                 success: false,
                 message: err.response.data.detail || 'FastAPI 서버 오류'
+            });
+        } else {
+            res.status(500).json({
+                success: false,
+                message: err.message || '서버 내부 오류'
+            });
+        }
+    }
+});
+
+// ──────────────────────────────────────────────────────
+// POST /ocr : 브라우저 → Node.js → Chandra OCR 프록시
+// ──────────────────────────────────────────────────────
+app.post('/ocr', upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: '이미지 파일이 없습니다.' });
+        }
+
+        const formData = new FormData();
+        formData.append('image', req.file.buffer, {
+            filename:    req.file.originalname,
+            contentType: req.file.mimetype
+        });
+
+        const response = await axios.post(OCR_URL, formData, {
+            headers: formData.getHeaders(),
+            timeout: 300000 // 5분 타임아웃 (OCR 처리 시간 고려)
+        });
+
+        res.json(response.data);
+
+    } catch (err) {
+        if (err.response) {
+            res.status(err.response.status).json({
+                success: false,
+                message: err.response.data.detail || 'OCR 서버 오류'
             });
         } else {
             res.status(500).json({

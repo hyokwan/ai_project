@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI 이미지 분석기</title>
   <style>
-    /* ── 전역 리셋 & 다크 테마 ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -33,8 +32,36 @@
     .subtitle {
       font-size: 0.85rem;
       color: #64748b;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
     }
+
+    /* ── 탭 ── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #2d3148;
+      padding-bottom: 0;
+    }
+
+    .tab-btn {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #64748b;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover { color: #a78bfa; }
+    .tab-btn.active { color: #a78bfa; border-bottom-color: #a78bfa; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
 
     /* ── 카드 공통 ── */
     .card {
@@ -54,7 +81,7 @@
       margin-bottom: 14px;
     }
 
-    /* ── 이미지 업로드 영역 ── */
+    /* ── 업로드 영역 ── */
     .upload-zone {
       border: 2px dashed #3b4263;
       border-radius: 10px;
@@ -66,7 +93,6 @@
 
     .upload-zone:hover { border-color: #a78bfa; background: #252840; }
     .upload-zone.dragover { border-color: #a78bfa; background: #252840; }
-
     .upload-zone input[type="file"] { display: none; }
 
     .upload-icon { font-size: 2.2rem; margin-bottom: 10px; }
@@ -77,14 +103,13 @@
       margin-top: 6px;
     }
 
-    /* ── 이미지 미리보기 ── */
-    #previewWrap {
+    .preview-wrap {
       display: none;
       margin-top: 16px;
       text-align: center;
     }
 
-    #previewImg {
+    .preview-wrap img {
       max-width: 100%;
       max-height: 320px;
       border-radius: 8px;
@@ -117,7 +142,7 @@
     textarea::placeholder { color: #3b4263; }
 
     /* ── 버튼 ── */
-    .btn-analyze {
+    .btn-action {
       width: 100%;
       padding: 14px;
       background: #7c3aed;
@@ -130,11 +155,11 @@
       transition: background 0.2s, opacity 0.2s;
     }
 
-    .btn-analyze:hover:not(:disabled) { background: #6d28d9; }
-    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-action:hover:not(:disabled) { background: #6d28d9; }
+    .btn-action:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* ── 로딩 애니메이션 ── */
-    #loading {
+    /* ── 로딩 ── */
+    .loading-box {
       display: none;
       align-items: center;
       gap: 10px;
@@ -159,8 +184,8 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── 결과 영역 ── */
-    #resultCard { display: none; }
+    /* ── 결과 ── */
+    .result-card { display: none; }
 
     .result-meta {
       display: flex;
@@ -200,7 +225,7 @@
     }
 
     /* ── 에러 ── */
-    #errorBox {
+    .error-box {
       display: none;
       background: #2a1a1a;
       border: 1px solid #7f1d1d;
@@ -216,184 +241,221 @@
   <div class="container">
 
     <h1>AI 이미지 분석기</h1>
-    <p class="subtitle">이미지를 업로드하고 질문을 입력하면 AI가 분석해 드립니다.</p>
+    <p class="subtitle">이미지를 업로드하고 원하는 기능을 선택하세요.</p>
 
-    <!-- 이미지 업로드 카드 -->
-    <div class="card">
-      <div class="card-title">이미지 선택</div>
-      <div class="upload-zone" id="uploadZone">
-        <div class="upload-icon">🖼️</div>
-        <div>클릭하거나 이미지를 드래그하세요</div>
-        <div class="upload-hint">JPG · PNG · WEBP · GIF &nbsp;|&nbsp; 최대 10MB</div>
-        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif" />
+    <!-- 탭 바 -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('analyze', this)">이미지 분석(Gemma2EB)</button>
+      <button class="tab-btn"        onclick="switchTab('ocr', this)">OCR 텍스트 추출(Chandra)</button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════
+         탭 1: 이미지 분석 (포트 8000)
+    ════════════════════════════════════════════════════ -->
+    <div class="tab-panel active" id="panel-analyze">
+
+      <div class="card">
+        <div class="card-title">이미지 선택</div>
+        <div class="upload-zone" id="analyzeUploadZone">
+          <div class="upload-icon">🖼️</div>
+          <div>클릭하거나 이미지를 드래그하세요</div>
+          <div class="upload-hint">JPG · PNG · WEBP · GIF &nbsp;|&nbsp; 최대 10MB</div>
+          <input type="file" id="analyzeFileInput" accept="image/jpeg,image/png,image/webp,image/gif" />
+        </div>
+        <div class="preview-wrap" id="analyzePreviewWrap">
+          <img id="analyzePreviewImg" alt="미리보기" />
+          <div class="preview-name" id="analyzePreviewName"></div>
+        </div>
       </div>
-      <!-- 미리보기 -->
-      <div id="previewWrap">
-        <img id="previewImg" alt="미리보기" />
-        <div class="preview-name" id="previewName"></div>
+
+      <div class="card">
+        <div class="card-title">질문 입력</div>
+        <textarea id="analyzeQuestion" placeholder="예: 이 이미지에서 텍스트를 추출해줘.">이 이미지에서 텍스트를 추출하고 내용을 설명해줘.</textarea>
       </div>
+
+      <button class="btn-action" id="analyzeBtn" onclick="runAnalyze()">분석하기</button>
+
+      <div class="error-box"  id="analyzeError"></div>
+      <div class="loading-box" id="analyzeLoading">
+        <div class="spinner"></div>AI가 분석 중입니다...
+      </div>
+
+      <div class="card result-card" id="analyzeResultCard">
+        <div class="card-title">분석 결과</div>
+        <div class="result-meta" id="analyzeResultMeta"></div>
+        <div class="result-label">질문</div>
+        <div class="result-box" id="analyzeResultQuestion"></div>
+        <div class="result-label">AI 답변</div>
+        <div class="result-box" id="analyzeResultAnswer"></div>
+      </div>
+
     </div>
 
-    <!-- 질문 입력 카드 -->
-    <div class="card">
-      <div class="card-title">질문 입력</div>
-      <textarea id="questionInput" placeholder="예: 이 이미지에서 텍스트를 추출해줘. / 이 사진에서 무엇이 보여?">이 이미지에서 텍스트를 추출하고 내용을 설명해줘.</textarea>
-    </div>
+    <!-- ════════════════════════════════════════════════════
+         탭 2: OCR (포트 8001)
+    ════════════════════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-ocr">
 
-    <!-- 분석 버튼 -->
-    <button class="btn-analyze" id="analyzeBtn" onclick="analyzeImage()">분석하기</button>
+      <div class="card">
+        <div class="card-title">이미지 선택</div>
+        <div class="upload-zone" id="ocrUploadZone">
+          <div class="upload-icon">📄</div>
+          <div>클릭하거나 이미지를 드래그하세요</div>
+          <div class="upload-hint">JPG · PNG · WEBP · GIF &nbsp;|&nbsp; 최대 10MB</div>
+          <input type="file" id="ocrFileInput" accept="image/jpeg,image/png,image/webp,image/gif" />
+        </div>
+        <div class="preview-wrap" id="ocrPreviewWrap">
+          <img id="ocrPreviewImg" alt="미리보기" />
+          <div class="preview-name" id="ocrPreviewName"></div>
+        </div>
+      </div>
 
-    <!-- 에러 메시지 -->
-    <div id="errorBox"></div>
+      <button class="btn-action" id="ocrBtn" onclick="runOcr()">텍스트 추출</button>
 
-    <!-- 로딩 표시 -->
-    <div id="loading">
-      <div class="spinner"></div>
-      AI가 분석 중입니다...
-    </div>
+      <div class="error-box"  id="ocrError"></div>
+      <div class="loading-box" id="ocrLoading">
+        <div class="spinner"></div>OCR 처리 중입니다... (시간이 걸릴 수 있습니다)
+      </div>
 
-    <!-- 결과 카드 -->
-    <div class="card" id="resultCard">
-      <div class="card-title">분석 결과</div>
+      <div class="card result-card" id="ocrResultCard">
+        <div class="card-title">추출 결과</div>
+        <div class="result-meta" id="ocrResultMeta"></div>
+        <div class="result-label">추출된 텍스트</div>
+        <div class="result-box" id="ocrResultText"></div>
+      </div>
 
-      <div class="result-meta" id="resultMeta"></div>
-
-      <div class="result-label">질문</div>
-      <div class="result-box" id="resultQuestion"></div>
-
-      <div class="result-label">AI 답변</div>
-      <div class="result-box" id="resultAnswer"></div>
     </div>
 
   </div>
 
   <script>
-    let selectedFile = null;
-
-    // ── 업로드 영역 클릭 → 파일 선택창 열기
-    document.getElementById('uploadZone').addEventListener('click', () => {
-      document.getElementById('fileInput').click();
-    });
-
-    // ── 파일 선택 이벤트
-    document.getElementById('fileInput').addEventListener('change', (e) => {
-      handleFile(e.target.files[0]);
-    });
-
-    // ── 드래그 앤 드롭 처리
-    const uploadZone = document.getElementById('uploadZone');
-
-    uploadZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadZone.classList.add('dragover');
-    });
-
-    uploadZone.addEventListener('dragleave', () => {
-      uploadZone.classList.remove('dragover');
-    });
-
-    uploadZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadZone.classList.remove('dragover');
-      if (e.dataTransfer.files.length > 0) {
-        handleFile(e.dataTransfer.files[0]);
-      }
-    });
-
-    // ── 파일 처리 및 미리보기 표시
-    function handleFile(file) {
-      if (!file) return;
-
-      selectedFile = file;
-
-      // 미리보기 이미지 렌더링
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        document.getElementById('previewImg').src = e.target.result;
-        document.getElementById('previewName').textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
-        document.getElementById('previewWrap').style.display = 'block';
-      };
-      reader.readAsDataURL(file);
+    // ── 탭 전환
+    function switchTab(name, btn) {
+      for (const el of document.querySelectorAll('.tab-panel')) el.classList.remove('active');
+      for (const el of document.querySelectorAll('.tab-btn'))   el.classList.remove('active');
+      document.getElementById('panel-' + name).classList.add('active');
+      btn.classList.add('active');
     }
 
-    // ── 분석 요청 전송
-    async function analyzeImage() {
-      // 유효성 검사
-      if (!selectedFile) {
-        showError('이미지를 먼저 선택해주세요.');
-        return;
-      }
+    // ── 업로드 영역 초기화 헬퍼
+    function initUpload(zoneId, inputId, previewImgId, previewNameId, previewWrapId, onFile) {
+      const zone  = document.getElementById(zoneId);
+      const input = document.getElementById(inputId);
 
-      const question = document.getElementById('questionInput').value.trim();
-      if (!question) {
-        showError('질문을 입력해주세요.');
-        return;
-      }
+      zone.addEventListener('click', () => input.click());
+      input.addEventListener('change', (e) => onFile(e.target.files[0]));
 
-      // UI 상태 전환: 로딩 시작
-      setLoading(true);
-      hideError();
-      document.getElementById('resultCard').style.display = 'none';
+      zone.addEventListener('dragover',  (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', ()  => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) onFile(e.dataTransfer.files[0]);
+      });
 
-      // FormData 구성
+      return function handleFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById(previewImgId).src   = e.target.result;
+          document.getElementById(previewNameId).textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+          document.getElementById(previewWrapId).style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      };
+    }
+
+    // ── 이미지 분석 탭
+    let analyzeFile = null;
+    const handleAnalyzeFile = initUpload(
+      'analyzeUploadZone', 'analyzeFileInput',
+      'analyzePreviewImg', 'analyzePreviewName', 'analyzePreviewWrap',
+      (f) => { analyzeFile = f; handleAnalyzeFile(f); }
+    );
+
+    async function runAnalyze() {
+      if (!analyzeFile) { showError('analyzeError', '이미지를 먼저 선택해주세요.'); return; }
+      const question = document.getElementById('analyzeQuestion').value.trim();
+      if (!question)  { showError('analyzeError', '질문을 입력해주세요.'); return; }
+
+      setLoading('analyzeLoading', 'analyzeBtn', true, '분석 중...');
+      hideError('analyzeError');
+      document.getElementById('analyzeResultCard').style.display = 'none';
+
       const formData = new FormData();
-      formData.append('image', selectedFile);
+      formData.append('image', analyzeFile);
       formData.append('question', question);
 
       try {
-        // Node.js 프록시 서버로 전송
-        const response = await fetch('/analyze', {
-          method: 'POST',
-          body: formData
-        });
+        const res  = await fetch('/analyze', { method: 'POST', body: formData });
+        const data = await res.json();
 
-        const data = await response.json();
+        if (!res.ok || !data.success) { showError('analyzeError', data.message || '오류 발생'); return; }
 
-        if (!response.ok || !data.success) {
-          showError(data.message || '분석 중 오류가 발생했습니다.');
-          return;
-        }
-
-        // 결과 렌더링
-        renderResult(data);
+        document.getElementById('analyzeResultMeta').innerHTML     = '<div class="badge">모델 <span>' + data.model + '</span></div>';
+        document.getElementById('analyzeResultQuestion').textContent = data.question;
+        document.getElementById('analyzeResultAnswer').textContent   = data.answer;
+        document.getElementById('analyzeResultCard').style.display   = 'block';
+        document.getElementById('analyzeResultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
       } catch (err) {
-        showError('서버 연결 실패: ' + err.message);
+        showError('analyzeError', '서버 연결 실패: ' + err.message);
       } finally {
-        // 로딩 종료
-        setLoading(false);
+        setLoading('analyzeLoading', 'analyzeBtn', false, '분석하기');
       }
     }
 
-    // ── 결과 화면 렌더링
-    function renderResult(data) {
-      document.getElementById('resultMeta').innerHTML =
-        '<div class="badge">모델 <span>' + data.model + '</span></div>';
+    // ── OCR 탭
+    let ocrFile = null;
+    const handleOcrFile = initUpload(
+      'ocrUploadZone', 'ocrFileInput',
+      'ocrPreviewImg', 'ocrPreviewName', 'ocrPreviewWrap',
+      (f) => { ocrFile = f; handleOcrFile(f); }
+    );
 
-      document.getElementById('resultQuestion').textContent = data.question;
-      document.getElementById('resultAnswer').textContent   = data.answer;
-      document.getElementById('resultCard').style.display   = 'block';
+    async function runOcr() {
+      if (!ocrFile) { showError('ocrError', '이미지를 먼저 선택해주세요.'); return; }
 
-      // 결과창으로 부드럽게 스크롤
-      document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setLoading('ocrLoading', 'ocrBtn', true, '추출 중...');
+      hideError('ocrError');
+      document.getElementById('ocrResultCard').style.display = 'none';
+
+      const formData = new FormData();
+      formData.append('image', ocrFile);
+
+      try {
+        const res  = await fetch('/ocr', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) { showError('ocrError', data.message || '오류 발생'); return; }
+
+        document.getElementById('ocrResultMeta').innerHTML    = '<div class="badge">모델 <span>' + data.model + '</span></div>';
+        document.getElementById('ocrResultText').textContent  = data.extracted_text;
+        document.getElementById('ocrResultCard').style.display = 'block';
+        document.getElementById('ocrResultCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      } catch (err) {
+        showError('ocrError', '서버 연결 실패: ' + err.message);
+      } finally {
+        setLoading('ocrLoading', 'ocrBtn', false, '텍스트 추출');
+      }
     }
 
-    // ── 로딩 상태 전환
-    function setLoading(isLoading) {
-      document.getElementById('loading').style.display    = isLoading ? 'flex' : 'none';
-      document.getElementById('analyzeBtn').disabled      = isLoading;
-      document.getElementById('analyzeBtn').textContent   = isLoading ? '분석 중...' : '분석하기';
+    // ── 공통 헬퍼
+    function setLoading(loadingId, btnId, on, label) {
+      document.getElementById(loadingId).style.display = on ? 'flex' : 'none';
+      document.getElementById(btnId).disabled          = on;
+      document.getElementById(btnId).textContent       = on ? label : document.getElementById(btnId).dataset.label || label;
     }
 
-    // ── 에러 메시지 표시 / 숨기기
-    function showError(msg) {
-      const box = document.getElementById('errorBox');
-      box.textContent     = '⚠️ ' + msg;
-      box.style.display   = 'block';
+    function showError(id, msg) {
+      const box = document.getElementById(id);
+      box.textContent   = '⚠️ ' + msg;
+      box.style.display = 'block';
     }
 
-    function hideError() {
-      document.getElementById('errorBox').style.display = 'none';
+    function hideError(id) {
+      document.getElementById(id).style.display = 'none';
     }
   </script>
 </body>
