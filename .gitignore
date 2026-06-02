@@ -1,6 +1,7 @@
 # 설정 및 환경변수
 config.py
 .env
+.kkk
 __pycache__/
 
 # 데이터셋 (이미지 파일들)
