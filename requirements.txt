@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-ollama
-openai
-python-multipart
-python-dotenv
-config
